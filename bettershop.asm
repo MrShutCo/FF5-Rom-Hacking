@@ -32,8 +32,11 @@ ShopID = $135
 CurrAttack = $544
 NewAttack = $1F
 
-org $C2EF59         ; LDA $240,Y ; SEC
-JSL CheckBetter     ; SBC #$000C
+;org $C2EF59         ; LDA $240,Y ; SEC
+;JSL CheckBetter     ; SBC #$000C
+
+org $C2EF1F          ; STZ $F1
+JSL CheckBetter      ; STZ $7E
 
 org $CFDC00
 CheckBetter: 
@@ -49,10 +52,16 @@ CheckBetter:
     LDA $135            ; ShopId
     ;REP #$30       ; 16bit
     JSR Mult9
-    ;SEP #$30        
+    ;SEP #$30
+    TAX
+    LDA $D12D40,X        ; Get the type of shop
+    AND #$0F
+    CMP #$01
+    BNE end
+    CLC
+    TXA
     ADC ShopCursorIdx    ; 9*shopId + cursorIdx
     TAX
-    
     LDA $D12D40, X      ; Index into shop data
 
     ;STA $2A              ; 12 * itemID + 7 for attack
@@ -77,14 +86,15 @@ CheckBetter:
 ; X = OAM offset
 
 loop:
-    LDA $240            ; Make sure we can equip
-    CMP #$E2            
-    BEQ CantEquip
+    ;LDA $240            ; Make sure we can equip TODO: read this better
+    ;CMP #$E2            
+    ;BEQ CantEquip
 
     LDA (AttackPointer)         ; Get current atk in left hand
     ;AND #$00FF
     CMP NewAttack      ; Compare against current
     BCC CurrBetter
+    ;BEQ CurrEqual
 
 CurrWorse:
     ; Do something
@@ -130,14 +140,16 @@ end:
     INX
     CPX #$10
     BNE loop
-    REP #$30
+    REP #$20            ; X,Y are 8bit mode
     PLP
     PLY
     PLX
+    SEP #$10            ; A is 16bit mode
     PLA
-    ;LDA $C0E628,X ; Native code
-    LDA $240,Y
-    SEC
+    
+    ;LDA $240,Y
+    STZ $F1 ;; Native code
+    STZ $7E
 RTL
 
 CantEquip:
