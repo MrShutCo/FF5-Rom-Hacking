@@ -22,15 +22,20 @@ dpbase $0000
 optimize dp always
 optimize address mirrors
 
-AttackPointer = $60
+StatPointer = $60
 OAMPointer = $62
 YValue = $63
+
+ItemDataStart = $D10000
+ShopDataStart = $D12D40
 
 ; Already existing memory
 ShopCursorIdx = $155
 ShopID = $135
 CurrAttack = $544
 NewAttack = $1F
+
+incsrc "macros.asm"
 
 ;org $C2EF59         ; LDA $240,Y ; SEC
 ;JSL CheckBetter     ; SBC #$000C
@@ -45,16 +50,11 @@ CheckBetter:
     PHX
     PHY
     PHP
-    SEP #$30 ; 8bit mode
+    %axy8() ; 8bit mode
     LDA $134            ; Quit early if we're not in a shop
     CMP #$02            ; This feels like a hack until i know where to hook in
     BNE end
-    LDA $135            ; ShopId
-    ;REP #$30       ; 16bit
-    JSR Mult9
-    ;SEP #$30
-    TAX
-    LDA $D12D40,X        ; Get the type of shop
+    JSL GetShopType
     AND #$0F
     CMP #$01
     BNE end
@@ -66,15 +66,15 @@ CheckBetter:
 
     ;STA $2A              ; 12 * itemID + 7 for attack
     ;LDA $12A             ; Item id
-    REP #$30              ; 16-bit
+    %axy16()              ; 16-bit
     JSR Mult12
     ADC #$0007
     TAX
     LDA #$544           ; Setup attack pointer
     STA $0160 
-    SEP #$20        
+    %a8()        
     LDA $D10000, X
-    SEP #$30       
+    %axy8()       
     STA NewAttack       ; Store the new attack power
     LDY #$00
     LDA #$47
@@ -90,64 +90,56 @@ loop:
     ;CMP #$E2            
     ;BEQ CantEquip
 
-    LDA (AttackPointer)         ; Get current atk in left hand
+    LDA (StatPointer)         ; Get current atk in left hand
     ;AND #$00FF
     CMP NewAttack      ; Compare against current
     BCC CurrBetter
     ;BEQ CurrEqual
 
-CurrWorse:
-    ; Do something
-    LDA #$D0
-    STA $20C,X
-    LDA YValue
-    STA $20D,X
-    LDA #$02
-    STA $20E,X
-    LDA #$28
-    STA $20F,X
+    BCC CurrBetter
+    BEQ CurrEqual
+
+CurrWorse:              ; Draw character crouched
+    LDA $242,X
+    CLC
+    ADC #$04
+    STA $242,X
+    LDA $246,X
+    CLC
+    ADC #$04
+    STA $246,X
     BRA end
 
 CurrEqual:
-    ; Do something
-    ;BRA end
+    BRA end
 
-CurrBetter:
-    ; Draw cursor if its better
-    LDA #$D0
-    STA $20C,X
-    LDA YValue
-    STA $20D,X
-    LDA #$02
-    STA $20E,X
-    LDA #$2A
-    STA $20F,X
+CurrBetter:             ; Draw character with arms up
+    LDA $242,X
+    INC
+    INC
+    STA $242,X
+    BRA end
 
 end:
-    REP #$20
-    LDA AttackPointer
+    %a16()
+    LDA StatPointer
     CLC
     ADC #$0050
-    STA AttackPointer
-    SEP #$20
-    LDA YValue          ; Increase cursor position
+    STA StatPointer
+    %a8()
+    TXA
     CLC
-    ADC #$1C
-    STA YValue
-    INX                 ; OAM offset
-    INX
-    INX
-    INX
-    CPX #$10
+    ADC #$08
+    TAX
+    CPX #$20
     BNE loop
-    REP #$20            ; X,Y are 8bit mode
+return:
+    %a16()            ; X,Y are 8bit mode
     PLP
     PLY
     PLX
-    SEP #$10            ; A is 16bit mode
+    %xy8()            ; A is 16bit mode
     PLA
-    
-    ;LDA $240,Y
     STZ $F1 ;; Native code
     STZ $7E
 RTL
@@ -160,6 +152,34 @@ CantEquip:
     STA $20F,X
     BRA end
 
+Mult12:
+    ASL
+    ASL         ; x4
+    STA $002A     
+    ASL         ; x8
+    ADC $002A     ; x(8+4)
+    RTS 
+
+org $0FDE00
+GetShopType:
+    LDA $135            ; ShopId
+    %a16()
+    JSR Mult9
+    TAX
+    %a8()
+    LDA ShopDataStart,X        ; Get the type of shop
+    RTL
+
+; Sets A to itemId
+GetItemId:
+    LDA ShopID
+    JSR Mult9
+    CLC
+    ADC ShopCursorIdx
+    TAX
+    LDA $D12D40, X
+    RTL
+
 Mult9:
     STA $002A
     ASL
@@ -168,10 +188,3 @@ Mult9:
     ADC $002A
     RTS
 
-Mult12:
-    ASL
-    ASL         ; x4
-    STA $002A     
-    ASL         ; x8
-    ADC $002A     ; x(8+4)
-    RTS 
