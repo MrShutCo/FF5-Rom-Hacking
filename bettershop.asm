@@ -35,10 +35,13 @@ TmpWorking = $94    ; Two byte
 
 
 ; ====== Starting RAM Item locations ======
-;LeftHandItem = #$513
+;LeftHandShield = #$511
+;RightHandShield = #$512
+;LeftHandWeapon = #$513
+;RightHandWeapon = #$514
 ;HelmItem = #$50E
 ;BodyItem = #$50F
-;RelicItem = #$510 ; ??
+;RelicItem = #$510
 
 ; Assumptions:
 ;   * Always in 8-bit mode unless we need to switch to 16 bit
@@ -79,7 +82,6 @@ IsShopTypeEquipment:
     JSL GetItemByte
     STA ShopAtkDef
 
-
 ; Store item type
     JSL GetShopItemId
     LDY #$00
@@ -108,7 +110,7 @@ armorDefense:
     BRA storeStat
 
 relicDefense:
-    LDA #$50F
+    LDA #$510
     BRA storeStat
 
 ; Prepare registers for character loop
@@ -121,18 +123,26 @@ storeStat:
 loop:
 ; Get current characters stat and compare
     LDA (HeroStatPointer)
+    CMP #$00                
+    BEQ CompareRightHand    ; Left hand is empty, empty equipment is $80
     LDY #$07
     JSL GetItemByte
     CMP ShopAtkDef
     BEQ CurrEqual
-    BCS WorseOption
+    BCC BetterOption
 
-BetterOption:             ; Draw character with arms up
-    LDA $242,X
-    INC
-    INC
-    STA $242,X
-    BRA end
+; IF (lefthand is non-zero and worse AND we can dual wield) OR lefthand is zero
+; THEN compare right hand as well
+; TODO: try reduce code duplication here
+; TODO: get this working for left and right hand shields too
+CompareRightHand:
+    LDY #$01
+    LDA (HeroStatPointer), Y
+    LDY #$07
+    JSL GetItemByte
+    CMP ShopAtkDef
+    BEQ CurrEqual
+    BCC BetterOption
 
 WorseOption:              ; Draw character crouched
     LDA $242,X
@@ -143,6 +153,13 @@ WorseOption:              ; Draw character crouched
     CLC
     ADC #$04
     STA $246,X
+    BRA end
+
+BetterOption:             ; Draw character with arms up
+    LDA $242,X
+    INC
+    INC
+    STA $242,X
     BRA end
 
 CurrEqual:                 ; Dont modify visual if its the same
