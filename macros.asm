@@ -1,3 +1,5 @@
+; Simple macros to improve readability
+
 macro xy16() 
     REP #$10 
 endmacro

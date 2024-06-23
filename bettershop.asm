@@ -111,6 +111,7 @@ relicDefense:
     LDA #$50F
     BRA storeStat
 
+; Prepare registers for character loop
 storeStat:
     STA HeroStatPointer ; a16() here
     LDA #$0000
@@ -144,9 +145,10 @@ WorseOption:              ; Draw character crouched
     STA $246,X
     BRA end
 
-CurrEqual:
+CurrEqual:                 ; Dont modify visual if its the same
     BRA end
 
+; Each character is $50 bytes of data, so increment by that to get next character
 end:
     %a16()
     LDA HeroStatPointer
@@ -159,7 +161,7 @@ end:
     CLC
     ADC #$08
     TAX
-    CPX #$20
+    CPX #$20                ; Breakpoint, i.e 4 iterations
     BNE loop
 
 return:
@@ -190,20 +192,6 @@ GetItemByte:
     %axy8()
     PLX
     RTL
-
-; GetAtkDef gets the atk/def of an item id stored in A
-; Doesnt modify 8/16bit
-GetAtkDef:
-    JSR Mult12 ; A in 16bit
-    CLC
-    ADC #$0007
-    %xy16()
-    TAX       
-    %a8()   ; Get only 1 byte of data
-    LDA ItemDataStart, X
-    %axy8()
-    RTL
-
 
 ; GetShopType sets A to first byte of shop data
 ; Doesn't modify 8/16bit
