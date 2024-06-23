@@ -130,6 +130,7 @@ loop:
     CMP ShopAtkDef
     BEQ CurrEqual
     BCC BetterOption
+    BRA WorseOption         ; TODO: need to actually check if we can equip 2 weapons here
 
 ; IF (lefthand is non-zero and worse AND we can dual wield) OR lefthand is zero
 ; THEN compare right hand as well
